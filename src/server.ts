@@ -44,7 +44,6 @@ export function createServer(
     url.searchParams.set("client_id", config.PLANE_CLIENT_ID);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("redirect_uri", config.PLANE_REDIRECT_URI);
-    url.searchParams.set("scope", config.oauthScopes.join(" "));
     url.searchParams.set("state", state);
 
     response.redirect(302, url.toString());

@@ -35,8 +35,7 @@ export class PlaneApiClient {
   public async exchangeBotToken(appInstallationId: string): Promise<OAuthTokenResponse> {
     const body = new URLSearchParams({
       grant_type: "client_credentials",
-      app_installation_id: appInstallationId,
-      scope: this.config.oauthScopes.join(" ")
+      app_installation_id: appInstallationId
     });
 
     return this.requestJson<OAuthTokenResponse>("/auth/o/token/", {
