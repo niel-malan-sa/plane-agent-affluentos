@@ -57,6 +57,17 @@ export function createServer(
         return;
       }
 
+      const oauthError = typeof request.query.error === "string" ? request.query.error : "";
+      if (oauthError) {
+        const errorDescription =
+          typeof request.query.error_description === "string" ? request.query.error_description : "";
+        const message = errorDescription
+          ? `Plane OAuth error: ${oauthError} (${errorDescription})`
+          : `Plane OAuth error: ${oauthError}`;
+        response.status(400).send(message);
+        return;
+      }
+
       const appInstallationId =
         typeof request.query.app_installation_id === "string" ? request.query.app_installation_id : "";
 
@@ -131,7 +142,7 @@ export function createServer(
         return;
       }
 
-      response.status(202).json({ status: "accepted", deliveryId, event });
+      response.status(200).json({ status: "accepted", deliveryId, event });
 
       void webhookService.processDelivery(deliveryId, event, payload);
     }
