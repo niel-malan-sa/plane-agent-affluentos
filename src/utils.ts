@@ -31,6 +31,10 @@ export function createRandomState(): string {
   return crypto.randomBytes(24).toString("hex");
 }
 
+export function randomId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID()}`;
+}
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -46,4 +50,11 @@ export function clipText(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+export function toHtmlParagraphs(markdownLike: string): string {
+  return markdownLike
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeHtml(block).replaceAll("\n", "<br />")}</p>`)
+    .join("\n");
 }
