@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { AppDatabase } from "./db.js";
 import { verifyPlaneSignature, PlaneWebhookService } from "./webhook-service.js";
 import { hmacSha256Hex } from "./utils.js";
@@ -138,6 +139,61 @@ test("database delivery reservation, dedupe, and queued jobs are durable", async
     sourceDeliveryId: "delivery-1"
   });
   assert.equal(await db.isPromptProcessed("activity-1"), true);
+
+  await db.close();
+});
+
+test("sqlite migration upgrades legacy oauth and installation tables in place", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "plane-agent-legacy-"));
+  const dbPath = path.join(tempDir, "state.sqlite");
+  const legacyDb = new Database(dbPath);
+
+  legacyDb.exec(`
+    CREATE TABLE oauth_states (
+      state TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE installations (
+      app_installation_id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL UNIQUE,
+      workspace_slug TEXT NOT NULL,
+      bot_user_id TEXT NOT NULL,
+      bot_token TEXT NOT NULL,
+      bot_token_expires_at TEXT NOT NULL,
+      scopes TEXT NOT NULL,
+      status TEXT NOT NULL,
+      installed_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  legacyDb.close();
+
+  const config = createConfig(dbPath);
+  const db = new AppDatabase(config);
+  await db.migrate();
+
+  await db.saveOauthState("state-1", "install");
+  const oauthState = await db.consumeOauthState("state-1", 60);
+  assert.equal(oauthState?.mode, "install");
+
+  await db.upsertInstallation({
+    appInstallationId: "install-1",
+    workspaceId: "workspace-1",
+    workspaceSlug: "workspace-1",
+    botUserId: "bot-1",
+    botToken: "token-1",
+    botTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+    scopes: "agents.runs:read",
+    status: "installed",
+    installedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastHealthcheckAt: null,
+    lastHealthcheckError: null
+  });
+
+  const installation = await db.getInstallationByWorkspaceId("workspace-1");
+  assert.equal(installation?.appInstallationId, "install-1");
 
   await db.close();
 });

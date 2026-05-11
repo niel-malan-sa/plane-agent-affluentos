@@ -306,6 +306,11 @@ export class AppDatabase {
         updated_at TEXT NOT NULL
       );
     `);
+
+    this.ensureSqliteColumn("oauth_states", "mode", "TEXT NOT NULL DEFAULT 'install'");
+    this.ensureSqliteColumn("oauth_states", "metadata_json", "TEXT");
+    this.ensureSqliteColumn("installations", "last_healthcheck_at", "TEXT");
+    this.ensureSqliteColumn("installations", "last_healthcheck_error", "TEXT");
   }
 
   public async close(): Promise<void> {
@@ -1067,6 +1072,23 @@ export class AppDatabase {
     for (const statement of statements) {
       await this.run(statement);
     }
+  }
+
+  private ensureSqliteColumn(tableName: string, columnName: string, definition: string): void {
+    if (!this.sqlite) {
+      return;
+    }
+
+    const columns = this.sqlite
+      .prepare(`PRAGMA table_info(${tableName})`)
+      .all() as Array<{ name?: string }>;
+
+    const hasColumn = columns.some((column) => column.name === columnName);
+    if (hasColumn) {
+      return;
+    }
+
+    this.sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
   }
 
   private rewriteParams(query: string): string {
